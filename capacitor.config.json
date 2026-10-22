@@ -1,0 +1,6 @@
+{
+  "appId": "com.mquang.magicapp",
+  "appName": "Magic App",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
