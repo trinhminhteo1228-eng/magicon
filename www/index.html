@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Magic App - Secure iOS Wrapper</title>
+    
+    <!-- Cấu hình Standalone cho App WebView / IPA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Magic App">
+    <link rel="apple-touch-icon" href="https://i.postimg.cc/zf3gp8qV/avt-magic.jpg">
+    <link rel="icon" type="image/jpeg" href="https://i.postimg.cc/zf3gp8qV/avt-magic.jpg">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #050505;
+            color: #ffffff;
+            margin: 0; padding: 0;
+            width: 100vw; height: 100vh;
+            overflow: hidden;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+            -webkit-user-select: none; user-select: none;
+        }
+        
+        .orb {
+            position: fixed; border-radius: 50%; filter: blur(80px); z-index: 0;
+            animation: float 10s infinite ease-in-out alternate; pointer-events: none;
+        }
+        .orb-1 { width: 300px; height: 300px; background: #a855f7; top: -50px; left: -50px; }
+        .orb-2 { width: 400px; height: 400px; background: #ec4899; bottom: -100px; right: -50px; animation-delay: -5s; }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(30px, 50px) scale(1.1); }
+        }
+
+        .glass-panel {
+            background: rgba(20, 20, 25, 0.75);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9);
+            position: relative; z-index: 10;
+        }
+
+        .avatar-glow { animation: pulse-glow 2s infinite alternate; }
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 10px #a855f7, 0 0 20px #a855f7; }
+            100% { box-shadow: 0 0 20px #ec4899, 0 0 40px #ec4899; }
+        }
+
+        .shine-text {
+            background: linear-gradient(90deg, #fff, #444, #fff);
+            background-size: 200% auto; color: transparent;
+            -webkit-background-clip: text; background-clip: text;
+            animation: shine 3s linear infinite;
+        }
+        @keyframes shine { to { background-position: 200% center; } }
+
+        .input-line {
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2); transition: all 0.3s ease;
+        }
+        .input-line:focus-within {
+            border-bottom: 2px solid #a855f7; box-shadow: 0 10px 10px -10px #a855f7;
+        }
+
+        /* Hiệu ứng ô tròn chạy vòng màu */
+        .circle-loader-btn {
+            width: 75px; height: 75px; border-radius: 50%;
+            background: linear-gradient(135deg, #a855f7, #ec4899);
+            display: flex; align-items: center; justify-content: center;
+            position: relative; cursor: pointer; transition: transform 0.3s;
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.5);
+        }
+        .circle-loader-btn:active { transform: scale(0.92); }
+        .circle-loader-btn::after {
+            content: ''; position: absolute; inset: -4px; border-radius: 50%;
+            border: 3px solid transparent; border-top-color: #fff; border-bottom-color: #fff;
+            animation: spin 1.5s linear infinite; opacity: 0; transition: opacity 0.3s;
+        }
+        .circle-loader-btn.loading::after { opacity: 1; }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .screen {
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            position: absolute; width: 100vw; height: 100vh;
+            top: 0; left: 0; display: flex; align-items: center; justify-content: center;
+            padding: 15px; overflow-y: auto;
+        }
+        .screen.hidden-screen { opacity: 0; pointer-events: none; transform: scale(0.96); display: none; }
+        .screen.active-screen { opacity: 1; pointer-events: auto; transform: scale(1); display: flex; }
+    </style>
+</head>
+<body class="text-white relative">
+
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+
+    <!-- ================= SCREEN 1: XÁC THỰC KEY ================= -->
+    <div id="loginScreen" class="screen active-screen flex-col">
+        <div class="glass-panel w-full max-w-sm rounded-[2rem] p-7 flex flex-col items-center my-auto">
+            <div class="relative mb-5">
+                <img src="https://i.postimg.cc/zf3gp8qV/avt-magic.jpg" alt="Avatar" class="w-20 h-20 rounded-full object-cover border-2 border-white/20 avatar-glow">
+            </div>
+
+            <h1 class="text-3xl font-extrabold tracking-wider mb-5 shine-text text-center w-full">
+                MAGIC IPA
+            </h1>
+
+            <div class="w-full relative input-line mb-6 z-40">
+                <input type="password" id="keyInput" placeholder="NHẬP MÃ KEY XÁC THỰC" 
+                    class="w-full bg-transparent text-white placeholder-gray-500 py-2.5 px-2 outline-none text-center font-medium tracking-widest text-xs">
+                <button type="button" id="togglePassword" class="absolute right-2 top-2.5 text-gray-400 hover:text-white transition-colors">
+                    <i class="fas fa-eye text-xs" id="eyeIcon"></i>
+                </button>
+            </div>
+
+            <button id="loginBtn" class="w-full py-3.5 rounded-xl font-bold text-base tracking-wider bg-gradient-to-r from-purple-600 to-pink-500 hover:opacity-90 transition-all shadow-[0_0_20px_rgba(168,85,247,0.4)] mb-4">
+                KIỂM TRA & XÁC THỰC
+            </button>
+
+            <div class="text-[9px] font-light tracking-widest text-gray-500 uppercase">
+                @ 2026 MQuang VIP - Secured Database
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= SCREEN 2: DASHBOARD CHÍNH ================= -->
+    <div id="dashboardScreen" class="screen hidden-screen flex-col">
+        <div class="glass-panel w-full max-w-md rounded-[2rem] p-6 mx-auto flex flex-col max-h-[92vh] my-auto overflow-y-auto">
+            
+            <div class="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
+                <div class="flex items-center gap-3">
+                    <img src="https://i.postimg.cc/zf3gp8qV/avt-magic.jpg" class="w-11 h-11 rounded-full border-2 border-purple-500 object-cover shadow-[0_0_10px_#a855f7]">
+                    <div>
+                        <h2 class="font-extrabold text-sm tracking-wider shine-text">MAGIC DASHBOARD</h2>
+                        <span id="packageBadge" class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">Gói: Đang tải...</span>
+                    </div>
+                </div>
+                <!-- Nút đăng xuất: khi bấm sẽ xóa key đã nhớ và quay về màn nhập key -->
+                <button onclick="logout()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-red-500/50 flex items-center justify-center transition-colors" title="Đổi Key / Đăng xuất">
+                    <i class="fas fa-power-off text-white text-xs"></i>
+                </button>
+            </div>
+
+            <!-- THANH THỜI GIAN GÓI KEY -->
+            <div class="bg-gradient-to-r from-purple-900/20 to-pink-900/20 rounded-2xl px-4 py-3 border border-purple-500/30 mb-4 shadow-[inset_0_0_15px_rgba(168,85,247,0.05)] flex items-center justify-between">
+                <div id="timedKeySection" class="w-full flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-clock text-purple-400 text-xs"></i>
+                        <span class="text-[10px] text-gray-300 uppercase tracking-widest font-bold">THỜI HẠN CÒN LẠI:</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 text-xs font-mono font-bold">
+                        <span class="text-white"><span id="cdDays" class="text-purple-300 font-extrabold text-sm">00</span>d</span>:
+                        <span class="text-white"><span id="cdHours" class="text-purple-300 font-extrabold text-sm">00</span>h</span>:
+                        <span class="text-pink-400"><span id="cdMins" class="font-extrabold text-sm">00</span>m</span>:
+                        <span class="text-purple-400"><span id="cdSecs" class="font-extrabold text-sm">00</span>s</span>
+                    </div>
+                </div>
+                <div id="lifetimeKeySection" class="hidden w-full flex items-center justify-between">
+                    <span class="text-xs font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-pink-300 tracking-wider">VĨNH VIỄN (LIFETIME VIP)</span>
+                </div>
+            </div>
+
+            <!-- CHỨC NĂNG DNS FIX BAND (.MOBILECONFIG) -->
+            <div class="bg-black/40 rounded-2xl p-4 border border-white/10 mb-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="font-bold text-sm text-gray-200 flex items-center gap-2" id="dnsTitle">
+                            <i class="fas fa-shield-alt text-purple-400" id="dnsIcon"></i> DNS FIX BAND
+                        </p>
+                        <p class="text-[10px] text-gray-400 mt-0.5" id="dnsSub">Tối ưu mạng & Cài cấu hình .mobileconfig chống quét</p>
+                    </div>
+                    <button id="dnsBtn" onclick="installDNSProfile()" class="px-4 py-2 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-xs font-bold text-purple-300 transition-all shadow-[0_0_10px_rgba(168,85,247,0.2)]">
+                        CÀI CẤU HÌNH
+                    </button>
+                </div>
+            </div>
+
+            <!-- NÚT TRÒ TRUY CẬP SANG MAGIC WEB -->
+            <div class="bg-black/40 rounded-2xl p-5 border border-white/10 flex flex-col items-center justify-center text-center">
+                <p class="text-xs font-bold text-gray-300 mb-3">TRUY CẬP TRANG CHỦ MAGIC WEB</p>
+                
+                <!-- Ô tròn hiệu ứng chạy vòng màu -->
+                <div id="magicOrbBtn" class="circle-loader-btn mb-3" onclick="triggerRedirectToWeb()">
+                    <i class="fas fa-globe text-white text-2xl"></i>
+                </div>
+                
+                <p id="redirectStatusText" class="text-[10px] text-gray-400">Chạm vào quả cầu để kết nối đến Web</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- SCRIPT XỬ LÝ LOGIC & GHI NHỚ ĐĂNG NHẬP -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyD-jS4uyRNRxLKK0Y8HNWckpcdVn5sYBoA",
+            authDomain: "mquangipa.firebaseapp.com",
+            databaseURL: "https://mquangipa-default-rtdb.firebaseio.com",
+            projectId: "mquangipa",
+            storageBucket: "mquangipa.firebasestorage.app",
+            messagingSenderId: "87690641376",
+            appId: "1:87690641376:web:6043e5483467c7f5557585",
+            measurementId: "G-SHB9FT0C6J"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const keyInput = document.getElementById('keyInput');
+        const togglePassword = document.getElementById('togglePassword');
+        const eyeIcon = document.getElementById('eyeIcon');
+
+        togglePassword.addEventListener('click', () => {
+            keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
+            eyeIcon.className = keyInput.type === 'password' ? 'fas fa-eye text-xs' : 'fas fa-eye-slash text-xs';
+        });
+
+        // Kiểm tra xem máy đã lưu key từ trước đó chưa ngay khi vừa mở app
+        window.addEventListener('DOMContentLoaded', async () => {
+            const savedKey = localStorage.getItem('magic_saved_key');
+            if (savedKey) {
+                // Tự động xác thực ngầm key đã lưu
+                await verifyAndEnterDashboard(savedKey, false);
+            }
+        });
+
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            const key = keyInput.value.trim();
+            if (!key) { alert('Vui lòng nhập mã key!'); return; }
+            await verifyAndEnterDashboard(key, true);
+        });
+
+        // Hàm xử lý xác thực Key với Firebase chung cho cả lúc bấm đăng nhập và tự động load
+        async function verifyAndEnterDashboard(key, showAlerts) {
+            try {
+                const snapshot = await db.ref('keys/' + key).once('value');
+                const keyData = snapshot.val();
+
+                if (!keyData) {
+                    if (showAlerts) alert('Mã key không tồn tại trên hệ thống!');
+                    localStorage.removeItem('magic_saved_key');
+                    return;
+                }
+
+                if (keyData.duration !== 'lifetime' && Date.now() > keyData.expiresAt) {
+                    if (showAlerts) alert('Mã key của bạn đã hết hạn sử dụng!');
+                    localStorage.removeItem('magic_saved_key');
+                    return;
+                }
+
+                // Lưu key lại vào bộ nhớ thiết bị để lần sau mở ra tự động vào luôn
+                localStorage.setItem('magic_saved_key', key);
+
+                // Hiển thị thông tin gói
+                document.getElementById('packageBadge').innerText = `Gói: ${keyData.package.toUpperCase()}`;
+                
+                if (keyData.duration === 'lifetime') {
+                    document.getElementById('timedKeySection').classList.add('hidden');
+                    document.getElementById('lifetimeKeySection').classList.remove('hidden');
+                } else {
+                    startCountdown(keyData.expiresAt);
+                }
+
+                // Chuyển màn hình sang Dashboard mượt mà
+                document.getElementById('loginScreen').classList.remove('active-screen');
+                document.getElementById('loginScreen').classList.add('hidden-screen');
+                document.getElementById('dashboardScreen').classList.remove('hidden-screen');
+                document.getElementById('dashboardScreen').classList.add('active-screen');
+
+            } catch (err) {
+                if (showAlerts) alert('Lỗi kết nối cơ sở dữ liệu Firebase!');
+            }
+        }
+
+        function startCountdown(expiryTime) {
+            setInterval(() => {
+                const diff = expiryTime - Date.now();
+                if (diff <= 0) return;
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+                document.getElementById('cdDays').innerText = String(days).padStart(2, '0');
+                document.getElementById('cdHours').innerText = String(hours).padStart(2, '0');
+                document.getElementById('cdMins').innerText = String(mins).padStart(2, '0');
+                document.getElementById('cdSecs').innerText = String(secs).padStart(2, '0');
+            }, 1000);
+        }
+
+        // Cài đặt cấu hình file .mobileconfig từ GitHub
+        function installDNSProfile() {
+            const btn = document.getElementById('dnsBtn');
+            btn.innerText = 'ĐANG TẢI PROFILE...';
+            
+            setTimeout(() => {
+                alert('Hệ thống đang tải tệp cấu hình mạng. Vui lòng bấm "Cho phép" (Allow), sau đó vào Cài đặt chung > Quản lý VPN & Thiết bị để cài đặt!');
+                const profileURL = "https://raw.githubusercontent.com/trinhminhteo1228-eng/dnsconfig/refs/heads/main/dns-protect.mobileconfig";
+                window.location.href = profileURL;
+                
+                btn.className = 'px-4 py-2 rounded-xl bg-green-600/30 border border-green-500/40 text-xs font-bold text-green-300 shadow-[0_0_10px_rgba(34,197,94,0.3)]';
+                btn.innerText = 'ĐÃ TẢI CẤU HÌNH';
+                document.getElementById('dnsSub').innerText = 'Hãy vào Cài đặt > Đã tải cấu hình để cài đặt';
+            }, 1000);
+        }
+
+        // Chuyển hướng tới trang web mới khi bấm quả cầu
+        function triggerRedirectToWeb() {
+            const orb = document.getElementById('magicOrbBtn');
+            const statusText = document.getElementById('redirectStatusText');
+            
+            orb.classList.add('loading');
+            statusText.innerText = 'Đang thiết lập kết nối an toàn đến Magic Web...';
+
+            setTimeout(() => {
+                statusText.innerText = 'Đang chuyển hướng...';
+                window.location.href = "https://settingmagic.ct.ws/?i=1"; 
+            }, 2000);
+        }
+
+        // Nút đăng xuất (Out): Xóa key đã nhớ để cho phép nhập key mới khi cần
+        function logout() {
+            localStorage.removeItem('magic_saved_key');
+            document.getElementById('keyInput').value = '';
+            document.getElementById('dashboardScreen').classList.remove('active-screen');
+            document.getElementById('dashboardScreen').classList.add('hidden-screen');
+            document.getElementById('loginScreen').classList.remove('hidden-screen');
+            document.getElementById('loginScreen').classList.add('active-screen');
+        }
+    </script>
+</body>
+</html>
