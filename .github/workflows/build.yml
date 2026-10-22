@@ -26,6 +26,11 @@ jobs:
           npx cap add ios
           npx cap copy ios
 
-      - name: Verify Build Output
+      - name: Build Xcode Project (Simulator / Generic)
         run: |
-          ls -la ios/App
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace \
+                     -scheme App \
+                     -configuration Release \
+                     -sdk iphonesimulator \
+                     build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
