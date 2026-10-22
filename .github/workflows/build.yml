@@ -40,13 +40,12 @@ jobs:
         run: |
           cd ios/App/build/Build/Products/Release-iphoneos
           mkdir -p Payload
-          # Tìm tự động file .app bất kỳ trong thư mục và đưa vào Payload
           cp -R *.app Payload/
           zip -r MagicApp.ipa Payload
           echo "IPA created successfully at $(pwd)/MagicApp.ipa"
 
       - name: Upload IPA Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: MagicApp-IPA
           path: ios/App/build/Build/Products/Release-iphoneos/MagicApp.ipa
